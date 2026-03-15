@@ -5,6 +5,8 @@ A Flutter plugin for changing app icons dynamically at runtime on Android and iO
 ## Features
 
 - Switch app launcher icons at runtime on both Android and iOS
+- **Scheduled icon changes** with automatic reset (e.g., holiday icons)
+- **Relaunch support** — optionally restart the app after icon switch (Android)
 - Built-in state recovery on boot, app update, and engine attach
 - Protected Components API to safeguard third-party SDK components (e.g., MoEngage, Firebase) during icon switches
 - OEM blacklist support to skip problematic Android devices
@@ -17,6 +19,8 @@ A Flutter plugin for changing app icons dynamically at runtime on Android and iO
 |------------------------|---------|-----------|
 | Alternate icon switch  | API 21+ | iOS 10.3+ |
 | Get current icon name  | API 21+ | iOS 10.3+ |
+| Scheduled icon change  | API 21+ | iOS 10.3+ |
+| Relaunch after switch  | API 21+ | --        |
 | Protected components   | API 21+ | --        |
 | OEM blacklist          | API 21+ | --        |
 | Badge number           | --      | iOS 10.3+ |
@@ -27,7 +31,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  dynamic_app_icon_changer: ^0.0.1
+  dynamic_app_icon_changer: ^0.0.3
 ```
 
 Then run:
@@ -233,6 +237,19 @@ await DynamicAppIconChanger.setAlternateIconName('IconBlue');
 await DynamicAppIconChanger.setAlternateIconName(null);
 ```
 
+### Relaunch after icon switch (Android only)
+
+By default, the launcher may take a few seconds to reflect the new icon. Pass `relaunch: true` to kill and restart the app immediately so the change is visible right away:
+
+```dart
+await DynamicAppIconChanger.setAlternateIconName(
+  'IconBlue',
+  relaunch: true, // App restarts after ~500ms
+);
+```
+
+> **Note:** This finishes the current activity and relaunches via `AlarmManager`. The user will briefly see the app close and reopen. On iOS this parameter is ignored.
+
 ### OEM blacklist (Android only)
 
 Silently skip icon changes on devices known to have issues:
@@ -251,6 +268,74 @@ await DynamicAppIconChanger.setBadgeNumber(5);
 await DynamicAppIconChanger.setBadgeNumber(0); // clear
 final badge = await DynamicAppIconChanger.badgeNumber;
 ```
+
+---
+
+## Scheduled Icon Changes
+
+Schedule an icon to be active during a specific time window, then automatically reset to the default icon when the window ends. Perfect for seasonal/holiday icons, events, or time-limited promotions.
+
+### Schedule an icon
+
+```dart
+// Christmas icon: Dec 20 to Dec 26
+await DynamicAppIconChanger.scheduleAlternateIcon(
+  'IconChristmas',
+  startAt: DateTime(2026, 12, 20),
+  endAt: DateTime(2026, 12, 26, 23, 59, 59),
+);
+
+// Start immediately, reset after 24 hours
+await DynamicAppIconChanger.scheduleAlternateIcon(
+  'IconPromo',
+  endAt: DateTime.now().add(Duration(hours: 24)),
+);
+```
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `iconName` | Yes | The alias name to activate |
+| `endAt` | Yes | When to reset back to the default icon |
+| `startAt` | No | When to activate the icon. If `null` or in the past, activates immediately |
+| `blacklistedBrands` | No | Same as `setAlternateIconName` |
+
+### Check active schedule
+
+```dart
+final schedule = await DynamicAppIconChanger.activeSchedule;
+if (schedule != null) {
+  print('Icon: ${schedule.iconName}');
+  print('Active: ${schedule.isActive}');
+  print('Ends: ${schedule.endAt}');
+}
+```
+
+### Cancel a schedule
+
+```dart
+// Cancel and reset to default
+await DynamicAppIconChanger.cancelScheduledIcon();
+
+// Cancel but keep the current icon
+await DynamicAppIconChanger.cancelScheduledIcon(resetToDefault: false);
+```
+
+### How scheduling works
+
+| Platform | Mechanism | Reliability |
+|----------|-----------|-------------|
+| **Android** | `AlarmManager` with `setExactAndAllowWhileIdle` | Fires in background even if app is killed. Alarms are re-registered on reboot via `BOOT_COMPLETED` receiver. |
+| **iOS** | `UserDefaults` + `willEnterForegroundNotification` | Schedule is checked every time the app enters the foreground. If the app isn't opened after `endAt`, the reset happens on the next launch. |
+
+**Schedule lifecycle:**
+1. `scheduleAlternateIcon()` is called
+2. If `startAt` is now/past → icon changes immediately. If future → alarm is set.
+3. `AlarmManager` fires `ACTION_SCHEDULE_START` → icon changes (Android)
+4. `AlarmManager` fires `ACTION_SCHEDULE_END` → icon resets to default
+5. On reboot → `IconStateRecoveryReceiver` re-registers alarms and checks for expired schedules
+6. On app update → recovery runs + default alias re-enabled for `flutter run`
+
+Only one schedule can be active at a time. Calling `scheduleAlternateIcon()` again replaces any existing schedule.
 
 ---
 
@@ -311,9 +396,9 @@ This is a **no-op on iOS** — iOS doesn't use component states.
 The plugin includes a multi-layered recovery system that runs automatically:
 
 1. **After every icon switch** — re-enables `MainActivity`, restores protected components
-2. **On Flutter engine attach** — runs a full state reconciliation from persisted SharedPreferences
-3. **On `BOOT_COMPLETED`** — `IconStateRecoveryReceiver` (auto-registered via manifest merger) restores alias states + protected components
-4. **On `MY_PACKAGE_REPLACED`** — same receiver handles app updates
+2. **On Flutter engine attach** — runs a full state reconciliation from persisted SharedPreferences, checks active schedules
+3. **On `BOOT_COMPLETED`** — `IconStateRecoveryReceiver` restores alias states + protected components, re-registers schedule alarms (lost on reboot), checks for expired schedules
+4. **On `MY_PACKAGE_REPLACED`** — same receiver handles app updates + re-enables default alias for `flutter run` compatibility
 
 The recovery receiver has **zero Flutter dependencies** and runs before the Flutter engine starts. No manual manifest changes or receiver registration needed in consuming apps.
 
@@ -340,6 +425,9 @@ try {
 | `ICON_NOT_FOUND` | The requested alias name doesn't exist in the manifest |
 | `ICON_CHANGE_FAILED` | An exception occurred during the component state change |
 | `INVALID_ARGUMENTS` | Invalid arguments passed to a method |
+| `INVALID_SCHEDULE` | `endAt` is in the past, or `endAt` is before `startAt` |
+| `SCHEDULE_FAILED` | An exception occurred while setting up the schedule |
+| `CANCEL_SCHEDULE_FAILED` | An exception occurred while cancelling the schedule |
 
 ---
 
@@ -352,7 +440,9 @@ After switching icons, `flutter run` fails with:
 Error: Activity class {com.example.app/com.example.app.MainActivity} does not exist.
 ```
 
-**Fix:** `MainActivity` must have **no LAUNCHER intent-filter** and must never be disabled. Follow the manifest setup above. If you're already in this state, re-enable it manually:
+**Fix:** `MainActivity` must have **no LAUNCHER intent-filter** and must never be disabled. Follow the manifest setup above. The plugin automatically re-enables the default alias on `MY_PACKAGE_REPLACED` (triggered by every `flutter run` install) to prevent this error.
+
+If you're already in this state, re-enable it manually:
 
 ```bash
 adb shell pm enable com.your.package/.MainActivity
@@ -375,6 +465,10 @@ adb shell pm enable com.your.package/.MainActivity
 2. Ensure PNG files are included in Xcode's **Copy Bundle Resources**
 3. The icon name must exactly match the string passed to `setAlternateIconName()`
 
+### Scheduled icon didn't reset on iOS
+
+The iOS schedule check runs on foreground entry. If the app isn't opened after the `endAt` time, the reset happens on the next launch. Background execution is not guaranteed on iOS.
+
 ### Notifications stop working after icon switch (Android)
 
 Third-party notification components (e.g., MoEngage PushTracker) can get disrupted by alias state changes. **Use `registerProtectedComponents()`** to keep them in the correct state. See [Protected Components](#protected-components-android).
@@ -384,11 +478,13 @@ Third-party notification components (e.g., MoEngage PushTracker) can get disrupt
 ## Notes and Caveats
 
 - **iOS system alert:** iOS always shows a confirmation dialog when changing icons. This cannot be suppressed.
-- **Android launcher delay:** The launcher may take a few seconds to reflect the new icon. The app may briefly disappear from the home screen.
+- **Android launcher delay:** The launcher may take a few seconds to reflect the new icon. Use `relaunch: true` to force an immediate restart.
 - **Pre-bundled icons only:** You cannot download and set arbitrary icons at runtime. All icons must be included in the app bundle at build time.
 - **Android OEM quirks:** Some OEM launchers may not reflect the change correctly. Use `blacklistedBrands` to skip problematic devices.
 - **Badge numbers:** Only supported on iOS. On Android, `setBadgeNumber` is a no-op and `badgeNumber` always returns 0.
 - **BOOT_COMPLETED permission:** The plugin's manifest declares `RECEIVE_BOOT_COMPLETED` for the recovery receiver. This merges automatically into your app.
+- **Exact alarm permission (Android 12+):** For precise schedule timing, the app should have the `SCHEDULE_EXACT_ALARM` permission. If not granted, the plugin falls back to inexact alarms which may have a few minutes of delay.
+- **One schedule at a time:** Calling `scheduleAlternateIcon()` replaces any existing schedule.
 
 ---
 

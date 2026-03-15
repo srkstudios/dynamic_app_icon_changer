@@ -60,6 +60,43 @@ class ProtectedComponent {
       };
 }
 
+/// Information about an active scheduled icon change.
+class ScheduleInfo {
+  /// The icon name that is (or will be) active during the scheduled window.
+  final String iconName;
+
+  /// When the scheduled icon becomes active. `null` if it started immediately.
+  final DateTime? startAt;
+
+  /// When the icon automatically resets to default.
+  final DateTime endAt;
+
+  /// Whether the scheduled icon is currently active (within the time window).
+  final bool isActive;
+
+  const ScheduleInfo({
+    required this.iconName,
+    this.startAt,
+    required this.endAt,
+    required this.isActive,
+  });
+
+  factory ScheduleInfo.fromMap(Map<String, dynamic> map) {
+    return ScheduleInfo(
+      iconName: map['iconName'] as String,
+      startAt: map['startAtMillis'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['startAtMillis'] as int)
+          : null,
+      endAt: DateTime.fromMillisecondsSinceEpoch(map['endAtMillis'] as int),
+      isActive: map['isActive'] as bool,
+    );
+  }
+
+  @override
+  String toString() =>
+      'ScheduleInfo(icon=$iconName, start=$startAt, end=$endAt, active=$isActive)';
+}
+
 /// Public API for changing app icons at runtime.
 ///
 /// All methods are static and delegate to the registered platform
@@ -93,19 +130,106 @@ class DynamicAppIconChanger {
   /// manufacturer or model substrings on which the icon change should
   /// be silently skipped (case-insensitive). Example: `['samsung']`.
   ///
+  /// [relaunch] (Android-only) when `true`, the app will be killed and
+  /// relaunched after ~500ms so the launcher immediately reflects the new
+  /// icon. Defaults to `false`.
+  ///
   /// Throws a [DynamicIconException] if the change fails.
   static Future<void> setAlternateIconName(
     String? iconName, {
     List<String>? blacklistedBrands,
+    bool relaunch = false,
   }) async {
     try {
       await DynamicAppIconChangerPlatform.instance.setAlternateIconName(
         iconName,
         blacklistedBrands: blacklistedBrands,
+        relaunch: relaunch,
       );
     } on Exception catch (e) {
       throw DynamicIconException(e.toString());
     }
+  }
+
+  /// Schedule an icon change that automatically resets to default.
+  ///
+  /// The icon will be set to [iconName] at [startAt] (or immediately if
+  /// [startAt] is `null` or in the past) and will automatically revert to
+  /// the default icon at [endAt].
+  ///
+  /// **Android**: Uses `AlarmManager` for reliable background scheduling.
+  /// The schedule survives reboots and app updates.
+  ///
+  /// **iOS**: The icon is set immediately (if within window) and the reset
+  /// is checked every time the app enters the foreground. If the app is not
+  /// opened after [endAt], the reset happens on the next launch.
+  ///
+  /// Only one schedule can be active at a time. Calling this again replaces
+  /// any existing schedule.
+  ///
+  /// [blacklistedBrands] (Android-only) same as [setAlternateIconName].
+  ///
+  /// Throws a [DynamicIconException] if the operation fails.
+  ///
+  /// Example — Christmas icon from Dec 20 to Dec 26:
+  /// ```dart
+  /// await DynamicAppIconChanger.scheduleAlternateIcon(
+  ///   'IconChristmas',
+  ///   startAt: DateTime(2026, 12, 20),
+  ///   endAt: DateTime(2026, 12, 26, 23, 59, 59),
+  /// );
+  /// ```
+  static Future<void> scheduleAlternateIcon(
+    String iconName, {
+    DateTime? startAt,
+    required DateTime endAt,
+    List<String>? blacklistedBrands,
+  }) async {
+    if (endAt.isBefore(DateTime.now())) {
+      throw DynamicIconException(
+        'endAt must be in the future',
+        code: 'INVALID_SCHEDULE',
+      );
+    }
+    if (startAt != null && endAt.isBefore(startAt)) {
+      throw DynamicIconException(
+        'endAt must be after startAt',
+        code: 'INVALID_SCHEDULE',
+      );
+    }
+    try {
+      await DynamicAppIconChangerPlatform.instance.scheduleAlternateIcon(
+        iconName,
+        startAt: startAt,
+        endAt: endAt,
+        blacklistedBrands: blacklistedBrands,
+      );
+    } on Exception catch (e) {
+      throw DynamicIconException(e.toString());
+    }
+  }
+
+  /// Cancel any active scheduled icon change.
+  ///
+  /// If [resetToDefault] is `true` (the default), the icon is immediately
+  /// reverted to the default. If `false`, the current icon stays but the
+  /// scheduled reset is cancelled.
+  static Future<void> cancelScheduledIcon({
+    bool resetToDefault = true,
+  }) async {
+    try {
+      await DynamicAppIconChangerPlatform.instance.cancelScheduledIcon(
+        resetToDefault: resetToDefault,
+      );
+    } on Exception catch (e) {
+      throw DynamicIconException(e.toString());
+    }
+  }
+
+  /// Returns information about the current scheduled icon, or `null` if
+  /// no schedule is active.
+  static Future<ScheduleInfo?> get activeSchedule {
+    return DynamicAppIconChangerPlatform.instance.getActiveSchedule();
   }
 
   /// Sets the app's badge number (iOS only).

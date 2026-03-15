@@ -40,10 +40,28 @@ abstract class DynamicAppIconChangerPlatform extends PlatformInterface {
   /// Pass `null` for [iconName] to revert to the default icon.
   /// [blacklistedBrands] (Android-only) silently skips the change on
   /// matching manufacturers/models.
+  /// [relaunch] (Android-only) restarts the app after the icon change.
   Future<void> setAlternateIconName(
     String? iconName, {
     List<String>? blacklistedBrands,
+    bool relaunch = false,
   });
+
+  /// Schedule an icon change with automatic reset to default at [endAt].
+  ///
+  /// If [startAt] is `null` or in the past, the icon is set immediately.
+  Future<void> scheduleAlternateIcon(
+    String iconName, {
+    DateTime? startAt,
+    required DateTime endAt,
+    List<String>? blacklistedBrands,
+  });
+
+  /// Cancel any active scheduled icon change.
+  Future<void> cancelScheduledIcon({bool resetToDefault = true});
+
+  /// Returns info about the current schedule, or `null` if none is active.
+  Future<ScheduleInfo?> getActiveSchedule();
 
   /// Sets the app badge number (iOS only; no-op on Android).
   Future<void> setBadgeNumber(int count);

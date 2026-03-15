@@ -11,7 +11,9 @@
       "Bash(flutter pub get)",
       "Bash(flutter test)",
       "Bash(ls lib/dynamic_app_icon*)",
-      "Bash(ls test/dynamic_app_icon*)"
+      "Bash(ls test/dynamic_app_icon*)",
+      "Bash(flutter analyze lib/)",
+      "Bash(flutter test test/dynamic_app_icon_changer_test.dart)"
     ]
   }
 }
