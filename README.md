@@ -1,29 +1,39 @@
 # dynamic_app_icon_changer
 
-A Flutter plugin for changing app icons dynamically at runtime on Android and iOS, with built-in state recovery that works seamlessly alongside third-party SDKs.
+A Flutter plugin for changing app icons dynamically at runtime on **all 6 platforms** — Android, iOS, macOS, Windows, Linux, and Web — with built-in state recovery that works seamlessly alongside third-party SDKs.
 
 ## Features
 
-- Switch app launcher icons at runtime on both Android and iOS
+- Switch app icons at runtime on **all platforms**
 - **Scheduled icon changes** with automatic reset (e.g., holiday icons)
 - **Relaunch support** — optionally restart the app after icon switch (Android)
-- Built-in state recovery on boot, app update, and engine attach
-- Protected Components API to safeguard third-party SDK components (e.g., MoEngage, Firebase) during icon switches
+- Built-in state recovery on boot, app update, and engine attach (Android)
+- Protected Components API to safeguard third-party SDK components (e.g., MoEngage, Firebase)
 - OEM blacklist support to skip problematic Android devices
-- Badge number support on iOS
+- Badge number support (iOS + macOS dock badge + web title badge)
 - Zero manual recovery code needed in consuming apps
 
 ## Platform Support
 
-| Feature                | Android | iOS       |
-|------------------------|---------|-----------|
-| Alternate icon switch  | API 21+ | iOS 10.3+ |
-| Get current icon name  | API 21+ | iOS 10.3+ |
-| Scheduled icon change  | API 21+ | iOS 10.3+ |
-| Relaunch after switch  | API 21+ | --        |
-| Protected components   | API 21+ | --        |
-| OEM blacklist          | API 21+ | --        |
-| Badge number           | --      | iOS 10.3+ |
+| Feature                | Android | iOS       | macOS      | Windows   | Linux     | Web       |
+|------------------------|---------|-----------|------------|-----------|-----------|-----------|
+| Alternate icon switch  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Get current icon name  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Scheduled icon change  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Relaunch after switch  | API 21+ | --        | --         | --        | --        | --        |
+| Protected components   | API 21+ | --        | --         | --        | --        | --        |
+| OEM blacklist          | API 21+ | --        | --         | --        | --        | --        |
+| Badge number           | --      | iOS 10.3+ | 10.14+     | --        | --        | Title     |
+
+> **How icons work per platform:**
+> - **Android**: Enables/disables `<activity-alias>` entries — changes the launcher icon permanently.
+> - **iOS**: Uses `UIApplication.setAlternateIconName` — changes the home screen icon permanently.
+> - **macOS**: Sets `NSApplication.applicationIconImage` — changes the Dock icon. Persists via UserDefaults and re-applies on launch.
+> - **Windows**: Uses `WM_SETICON` to change the window/taskbar icon. Icons loaded from `assets/icons/` in the Flutter assets directory.
+> - **Linux**: Uses `gtk_window_set_icon` to change the window icon. Icons loaded from `assets/icons/` in the Flutter assets directory.
+> - **Web**: Dynamically changes the `<link rel="icon">` favicon. Icons served from `web/icons/`.
+>
+> Desktop and web icon changes are **session-scoped** (revert on app restart) but the plugin persists the choice and re-applies it on next launch.
 
 ## Installation
 
@@ -203,6 +213,77 @@ In `ios/Runner/Info.plist`, add the `CFBundleIcons` dictionary:
 2. Right-click the Runner folder > "Add Files to Runner..."
 3. Select your icon PNG files (check "Copy items if needed")
 4. Verify they appear in **Build Phases > Copy Bundle Resources**
+
+---
+
+## macOS Setup
+
+macOS uses `NSApplication.applicationIconImage` to change the Dock icon at runtime.
+
+### Option A: Asset Catalog (recommended)
+
+1. Open `macos/Runner.xcworkspace` in Xcode
+2. In `Assets.xcassets`, create new Image Sets named `IconBlue`, `IconGreen`, etc.
+3. Add the icon images to each set
+
+### Option B: Loose files
+
+Place PNG or ICNS files directly in `macos/Runner/`:
+- `IconBlue.png`
+- `IconGreen.icns`
+
+The plugin searches for the icon by name using `NSImage(named:)` and falls back to loading from the app bundle and Flutter assets.
+
+---
+
+## Windows / Linux Setup
+
+On Windows and Linux, the plugin changes the **window icon** (taskbar/title bar) at runtime.
+
+### Step 1: Add icon files to Flutter assets
+
+Place your icon files in your project's assets directory:
+
+```
+assets/
+  icons/
+    IconBlue.ico       (Windows: .ico preferred)
+    IconBlue.png       (Linux: .png preferred)
+    IconGreen.ico
+    IconGreen.png
+```
+
+### Step 2: Register assets in pubspec.yaml
+
+```yaml
+flutter:
+  assets:
+    - assets/icons/
+```
+
+The plugin resolves icons from `<exe_dir>/data/flutter_assets/assets/icons/<iconName>`.
+
+---
+
+## Web Setup
+
+On the web, the plugin changes the **favicon** dynamically.
+
+### Step 1: Add icon files
+
+Place your icon PNG files in the `web/icons/` directory:
+
+```
+web/
+  icons/
+    IconBlue.png
+    IconGreen.png
+  favicon.png          (default favicon)
+```
+
+### Step 2: Ensure default favicon exists
+
+The plugin resets to `favicon.png` when reverting to the default icon. Make sure this file exists in your `web/` directory.
 
 ---
 
@@ -387,7 +468,7 @@ Call this once at app startup (e.g., in your `main()` or root widget's `initStat
 | `ComponentState.disabled` | Explicitly disable the component |
 | `ComponentState.defaultState` | Respect the manifest's declared value |
 
-This is a **no-op on iOS** — iOS doesn't use component states.
+This is **Android-only** — all other platforms ignore this call.
 
 ---
 

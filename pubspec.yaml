@@ -1,5 +1,5 @@
 name: dynamic_app_icon_changer
-description: A Flutter plugin for changing app icons dynamically at runtime on Android and iOS.
+description: A Flutter plugin for changing app icons dynamically at runtime. Supports Android, iOS, macOS, Windows, Linux, and Web with scheduled icons, relaunch support, state recovery, and protected components.
 version: 0.0.3
 homepage: https://github.com/srkstudios/dynamic_app_icon_changer
 
@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
+  web: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +26,12 @@ flutter:
         pluginClass: DynamicAppIconChangerPlugin
       ios:
         pluginClass: DynamicAppIconChangerPlugin
+      macos:
+        pluginClass: DynamicAppIconChangerPlugin
+      windows:
+        pluginClass: DynamicAppIconChangerPluginCApi
+      linux:
+        pluginClass: DynamicAppIconChangerPlugin
+      web:
+        dartPluginClass: DynamicAppIconChangerWeb
+        fileName: dynamic_app_icon_changer_web.dart
