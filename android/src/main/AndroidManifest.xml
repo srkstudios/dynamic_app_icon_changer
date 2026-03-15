@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.srkstudios.dynamic_icon_changer">
+  package="com.srkstudios.dynamic_app_icon_changer">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 

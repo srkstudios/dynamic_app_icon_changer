@@ -1,11 +1,11 @@
 Pod::Spec.new do |s|
-  s.name             = 'dynamic_icon_changer'
+  s.name             = 'dynamic_app_icon_changer'
   s.version          = '0.0.1'
   s.summary          = 'Flutter plugin for changing app icons dynamically.'
   s.description      = <<-DESC
 A Flutter plugin for changing app icons dynamically at runtime on Android and iOS.
                        DESC
-  s.homepage         = 'https://github.com/srkstudios/dynamic_icon_changer'
+  s.homepage         = 'https://github.com/srkstudios/dynamic_app_icon_changer'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'SRK Studios' => 'dev@srkstudios.com' }
   s.source           = { :path => '.' }

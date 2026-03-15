@@ -1,4 +1,4 @@
-group = "com.srkstudios.dynamic_icon_changer"
+group = "com.srkstudios.dynamic_app_icon_changer"
 version = "1.0-SNAPSHOT"
 
 buildscript {
@@ -27,7 +27,7 @@ plugins {
 }
 
 android {
-    namespace = "com.srkstudios.dynamic_icon_changer"
+    namespace = "com.srkstudios.dynamic_app_icon_changer"
 
     compileSdk = 36
 

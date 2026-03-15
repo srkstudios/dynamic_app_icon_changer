@@ -2,16 +2,16 @@ import Flutter
 import UIKit
 import os.log
 
-private let log = OSLog(subsystem: "com.srkstudios.dynamic_icon_changer", category: "DynamicIconChanger")
+private let log = OSLog(subsystem: "com.srkstudios.dynamic_app_icon_changer", category: "DynamicAppIconChanger")
 
-public class DynamicIconChangerPlugin: NSObject, FlutterPlugin {
+public class DynamicAppIconChangerPlugin: NSObject, FlutterPlugin {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
-            name: "dynamic_icon_changer/methods",
+            name: "dynamic_app_icon_changer/methods",
             binaryMessenger: registrar.messenger()
         )
-        let instance = DynamicIconChangerPlugin()
+        let instance = DynamicAppIconChangerPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
         os_log(.debug, log: log, "Plugin registered")
     }

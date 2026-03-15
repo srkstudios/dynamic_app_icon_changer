@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:dynamic_icon_changer/dynamic_icon_changer.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer.dart';
 
 void main() {
   runApp(const MyApp());
@@ -61,7 +61,7 @@ class _HomePageState extends State<HomePage> {
       // Example: protect MoEngage PushTracker from being disabled during
       // icon switches. Uncomment and adjust the class name for your app:
       //
-      // await DynamicIconChanger.registerProtectedComponents([
+      // await DynamicAppIconChanger.registerProtectedComponents([
       //   const ProtectedComponent(
       //     className: 'com.moengage.pushbase.activities.PushTracker',
       //     desiredState: ComponentState.enabled,
@@ -74,11 +74,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadState() async {
     try {
-      final supports = await DynamicIconChanger.supportsAlternateIcons;
-      final iconName = await DynamicIconChanger.alternateIconName;
+      final supports = await DynamicAppIconChanger.supportsAlternateIcons;
+      final iconName = await DynamicAppIconChanger.alternateIconName;
       int badge = 0;
       if (Platform.isIOS) {
-        badge = await DynamicIconChanger.badgeNumber;
+        badge = await DynamicAppIconChanger.badgeNumber;
       }
       if (!mounted) return;
       setState(() {
@@ -97,8 +97,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _setIcon(String? iconName) async {
     try {
-      await DynamicIconChanger.setAlternateIconName(iconName);
-      final current = await DynamicIconChanger.alternateIconName;
+      await DynamicAppIconChanger.setAlternateIconName(iconName);
+      final current = await DynamicAppIconChanger.alternateIconName;
       if (!mounted) return;
       setState(() {
         _currentIconName = current;
@@ -117,7 +117,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _setIconBlacklisted() async {
     try {
       // Blacklist the current device manufacturer so the change is skipped
-      await DynamicIconChanger.setAlternateIconName(
+      await DynamicAppIconChanger.setAlternateIconName(
         'IconBlue',
         blacklistedBrands: [
           // This will match the current device, so the change should be skipped
@@ -138,8 +138,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _setBadge(int count) async {
     try {
-      await DynamicIconChanger.setBadgeNumber(count);
-      final current = await DynamicIconChanger.badgeNumber;
+      await DynamicAppIconChanger.setBadgeNumber(count);
+      final current = await DynamicAppIconChanger.badgeNumber;
       if (!mounted) return;
       setState(() {
         _badgeNumber = current;

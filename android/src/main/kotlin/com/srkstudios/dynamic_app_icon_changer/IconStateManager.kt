@@ -1,4 +1,4 @@
-package com.srkstudios.dynamic_icon_changer
+package com.srkstudios.dynamic_app_icon_changer
 
 import android.content.ComponentName
 import android.content.Context
@@ -11,7 +11,7 @@ import org.json.JSONObject
 internal object IconStateManager {
 
     private const val TAG = "IconStateManager"
-    private const val PREFS_NAME = "com.srkstudios.dynamic_icon_changer"
+    private const val PREFS_NAME = "com.srkstudios.dynamic_app_icon_changer"
     private const val KEY_ACTIVE_ICON = "active_icon_name"
     private const val KEY_ALIAS_NAMES = "alias_short_names"
     private const val KEY_MAIN_ACTIVITY = "main_activity_class"

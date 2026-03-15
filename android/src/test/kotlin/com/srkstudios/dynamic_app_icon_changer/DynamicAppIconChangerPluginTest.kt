@@ -1,14 +1,14 @@
-package com.srkstudios.dynamic_icon_changer
+package com.srkstudios.dynamic_app_icon_changer
 
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlin.test.Test
 import org.mockito.Mockito
 
-internal class DynamicIconChangerPluginTest {
+internal class DynamicAppIconChangerPluginTest {
     @Test
     fun supportsAlternateIconsReturnsTrue() {
-        val plugin = DynamicIconChangerPlugin()
+        val plugin = DynamicAppIconChangerPlugin()
         val call = MethodCall("supportsAlternateIcons", null)
         val mockResult: MethodChannel.Result = Mockito.mock(MethodChannel.Result::class.java)
         plugin.onMethodCall(call, mockResult)

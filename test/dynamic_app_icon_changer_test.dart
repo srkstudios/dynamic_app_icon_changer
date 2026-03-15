@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dynamic_icon_changer/dynamic_icon_changer.dart';
-import 'package:dynamic_icon_changer/dynamic_icon_changer_platform_interface.dart';
-import 'package:dynamic_icon_changer/dynamic_icon_changer_method_channel.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer_platform_interface.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer_method_channel.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-class MockDynamicIconChangerPlatform
+class MockDynamicAppIconChangerPlatform
     with MockPlatformInterfaceMixin
-    implements DynamicIconChangerPlatform {
+    implements DynamicAppIconChangerPlatform {
   @override
   Future<bool> supportsAlternateIcons() => Future.value(true);
 
@@ -29,49 +29,49 @@ class MockDynamicIconChangerPlatform
 }
 
 void main() {
-  final DynamicIconChangerPlatform initialPlatform =
-      DynamicIconChangerPlatform.instance;
+  final DynamicAppIconChangerPlatform initialPlatform =
+      DynamicAppIconChangerPlatform.instance;
 
-  test('MethodChannelDynamicIconChanger is the default instance', () {
-    expect(initialPlatform, isInstanceOf<MethodChannelDynamicIconChanger>());
+  test('MethodChannelDynamicAppIconChanger is the default instance', () {
+    expect(initialPlatform, isInstanceOf<MethodChannelDynamicAppIconChanger>());
   });
 
-  group('DynamicIconChanger', () {
-    late MockDynamicIconChangerPlatform fakePlatform;
+  group('DynamicAppIconChanger', () {
+    late MockDynamicAppIconChangerPlatform fakePlatform;
 
     setUp(() {
-      fakePlatform = MockDynamicIconChangerPlatform();
-      DynamicIconChangerPlatform.instance = fakePlatform;
+      fakePlatform = MockDynamicAppIconChangerPlatform();
+      DynamicAppIconChangerPlatform.instance = fakePlatform;
     });
 
     test('supportsAlternateIcons returns true', () async {
-      expect(await DynamicIconChanger.supportsAlternateIcons, true);
+      expect(await DynamicAppIconChanger.supportsAlternateIcons, true);
     });
 
     test('alternateIconName returns mock value', () async {
-      expect(await DynamicIconChanger.alternateIconName, 'TestIcon');
+      expect(await DynamicAppIconChanger.alternateIconName, 'TestIcon');
     });
 
     test('setAlternateIconName completes without error', () async {
-      await DynamicIconChanger.setAlternateIconName('TestIcon');
+      await DynamicAppIconChanger.setAlternateIconName('TestIcon');
     });
 
     test('setAlternateIconName with blacklist completes without error',
         () async {
-      await DynamicIconChanger.setAlternateIconName('TestIcon',
+      await DynamicAppIconChanger.setAlternateIconName('TestIcon',
           blacklistedBrands: ['samsung']);
     });
 
     test('setBadgeNumber completes without error', () async {
-      await DynamicIconChanger.setBadgeNumber(5);
+      await DynamicAppIconChanger.setBadgeNumber(5);
     });
 
     test('badgeNumber returns mock value', () async {
-      expect(await DynamicIconChanger.badgeNumber, 42);
+      expect(await DynamicAppIconChanger.badgeNumber, 42);
     });
 
     test('registerProtectedComponents completes without error', () async {
-      await DynamicIconChanger.registerProtectedComponents([
+      await DynamicAppIconChanger.registerProtectedComponents([
         const ProtectedComponent(
           className: 'com.example.SomeReceiver',
           desiredState: ComponentState.enabled,
@@ -80,11 +80,11 @@ void main() {
     });
 
     test('registerProtectedComponents with empty list completes', () async {
-      await DynamicIconChanger.registerProtectedComponents([]);
+      await DynamicAppIconChanger.registerProtectedComponents([]);
     });
 
     test('registerProtectedComponents with multiple components', () async {
-      await DynamicIconChanger.registerProtectedComponents([
+      await DynamicAppIconChanger.registerProtectedComponents([
         const ProtectedComponent(
           className: 'com.moengage.pushbase.activities.PushTracker',
           desiredState: ComponentState.enabled,

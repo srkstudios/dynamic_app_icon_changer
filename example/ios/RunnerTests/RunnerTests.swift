@@ -3,7 +3,7 @@ import UIKit
 import XCTest
 
 
-@testable import dynamic_icon_changer
+@testable import dynamic_app_icon_changer
 
 // This demonstrates a simple unit test of the Swift portion of this plugin's implementation.
 //
@@ -12,7 +12,7 @@ import XCTest
 class RunnerTests: XCTestCase {
 
   func testGetPlatformVersion() {
-    let plugin = DynamicIconChangerPlugin()
+    let plugin = DynamicAppIconChangerPlugin()
 
     let call = FlutterMethodCall(methodName: "getPlatformVersion", arguments: [])
 
