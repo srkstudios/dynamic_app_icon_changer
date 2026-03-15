@@ -1,12 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dynamic_icon_changer/dynamic_icon_changer_method_channel.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer_method_channel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  final platform = MethodChannelDynamicIconChanger();
-  const channel = MethodChannel('dynamic_icon_changer/methods');
+  final platform = MethodChannelDynamicAppIconChanger();
+  const channel = MethodChannel('dynamic_app_icon_changer/methods');
 
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

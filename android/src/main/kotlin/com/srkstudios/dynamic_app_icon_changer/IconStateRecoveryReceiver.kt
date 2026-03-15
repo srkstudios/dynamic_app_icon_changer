@@ -1,4 +1,4 @@
-package com.srkstudios.dynamic_icon_changer
+package com.srkstudios.dynamic_app_icon_changer
 
 import android.content.BroadcastReceiver
 import android.content.Context

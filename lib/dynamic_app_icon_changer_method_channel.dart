@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 
-import 'dynamic_icon_changer.dart';
-import 'dynamic_icon_changer_platform_interface.dart';
+import 'dynamic_app_icon_changer.dart';
+import 'dynamic_app_icon_changer_platform_interface.dart';
 
-/// [MethodChannel]-based implementation of [DynamicIconChangerPlatform].
-class MethodChannelDynamicIconChanger extends DynamicIconChangerPlatform {
-  final methodChannel = const MethodChannel('dynamic_icon_changer/methods');
+/// [MethodChannel]-based implementation of [DynamicAppIconChangerPlatform].
+class MethodChannelDynamicAppIconChanger extends DynamicAppIconChangerPlatform {
+  final methodChannel = const MethodChannel('dynamic_app_icon_changer/methods');
 
   @override
   Future<bool> supportsAlternateIcons() async {

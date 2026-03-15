@@ -1,4 +1,4 @@
-# dynamic_icon_changer
+# dynamic_app_icon_changer
 
 A Flutter plugin for changing app icons dynamically at runtime on Android and iOS, with built-in state recovery that works seamlessly alongside third-party SDKs.
 
@@ -27,7 +27,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  dynamic_icon_changer: ^0.0.1
+  dynamic_app_icon_changer: ^0.0.1
 ```
 
 Then run:
@@ -207,19 +207,19 @@ In `ios/Runner/Info.plist`, add the `CFBundleIcons` dictionary:
 ### Import
 
 ```dart
-import 'package:dynamic_icon_changer/dynamic_icon_changer.dart';
+import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer.dart';
 ```
 
 ### Check support
 
 ```dart
-final isSupported = await DynamicIconChanger.supportsAlternateIcons;
+final isSupported = await DynamicAppIconChanger.supportsAlternateIcons;
 ```
 
 ### Get current icon
 
 ```dart
-final iconName = await DynamicIconChanger.alternateIconName;
+final iconName = await DynamicAppIconChanger.alternateIconName;
 // Returns null when the default icon is active.
 ```
 
@@ -227,10 +227,10 @@ final iconName = await DynamicIconChanger.alternateIconName;
 
 ```dart
 // Switch to an alternate icon
-await DynamicIconChanger.setAlternateIconName('IconBlue');
+await DynamicAppIconChanger.setAlternateIconName('IconBlue');
 
 // Restore the default icon
-await DynamicIconChanger.setAlternateIconName(null);
+await DynamicAppIconChanger.setAlternateIconName(null);
 ```
 
 ### OEM blacklist (Android only)
@@ -238,7 +238,7 @@ await DynamicIconChanger.setAlternateIconName(null);
 Silently skip icon changes on devices known to have issues:
 
 ```dart
-await DynamicIconChanger.setAlternateIconName(
+await DynamicAppIconChanger.setAlternateIconName(
   'IconBlue',
   blacklistedBrands: ['Samsung', 'Xiaomi'],
 );
@@ -247,9 +247,9 @@ await DynamicIconChanger.setAlternateIconName(
 ### Badge number (iOS only)
 
 ```dart
-await DynamicIconChanger.setBadgeNumber(5);
-await DynamicIconChanger.setBadgeNumber(0); // clear
-final badge = await DynamicIconChanger.badgeNumber;
+await DynamicAppIconChanger.setBadgeNumber(5);
+await DynamicAppIconChanger.setBadgeNumber(0); // clear
+final badge = await DynamicAppIconChanger.badgeNumber;
 ```
 
 ---
@@ -271,7 +271,7 @@ Previously, apps had to write manual recovery classes with `BroadcastReceiver` t
 Register components that need protection, and the plugin ensures they stay in the correct state:
 
 ```dart
-await DynamicIconChanger.registerProtectedComponents([
+await DynamicAppIconChanger.registerProtectedComponents([
   // Keep MoEngage PushTracker always enabled
   const ProtectedComponent(
     className: 'com.moengage.pushbase.activities.PushTracker',
@@ -325,7 +325,7 @@ The plugin throws `DynamicIconException` on failures:
 
 ```dart
 try {
-  await DynamicIconChanger.setAlternateIconName('IconBlue');
+  await DynamicAppIconChanger.setAlternateIconName('IconBlue');
 } on DynamicIconException catch (e) {
   print('Error: ${e.message}');  // Human-readable message
   print('Code: ${e.code}');      // Machine-readable code (e.g., ICON_NOT_FOUND)

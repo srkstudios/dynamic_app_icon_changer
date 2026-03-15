@@ -1,4 +1,4 @@
-package com.srkstudios.dynamic_icon_changer
+package com.srkstudios.dynamic_app_icon_changer
 
 import android.content.ComponentName
 import android.content.Intent
@@ -11,11 +11,11 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
-/** DynamicIconChangerPlugin */
-class DynamicIconChangerPlugin : FlutterPlugin, MethodCallHandler {
+/** DynamicAppIconChangerPlugin */
+class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler {
 
     companion object {
-        private const val TAG = "DynamicIconChanger"
+        private const val TAG = "DynamicAppIconChanger"
     }
 
     private lateinit var channel: MethodChannel
@@ -24,7 +24,7 @@ class DynamicIconChangerPlugin : FlutterPlugin, MethodCallHandler {
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         Log.d(TAG, "onAttachedToEngine: attaching plugin")
         binding = flutterPluginBinding
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "dynamic_icon_changer/methods")
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "dynamic_app_icon_changer/methods")
         channel.setMethodCallHandler(this)
 
         try {

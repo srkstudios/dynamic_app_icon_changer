@@ -1,29 +1,29 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'dynamic_icon_changer.dart';
-import 'dynamic_icon_changer_method_channel.dart';
+import 'dynamic_app_icon_changer.dart';
+import 'dynamic_app_icon_changer_method_channel.dart';
 
-/// Platform-agnostic interface for the dynamic_icon_changer plugin.
+/// Platform-agnostic interface for the dynamic_app_icon_changer plugin.
 ///
 /// Platform-specific implementations should extend this class rather than
 /// implement it directly, so that new methods can be added without breaking
 /// existing implementations.  See [PlatformInterface] for details.
-abstract class DynamicIconChangerPlatform extends PlatformInterface {
-  DynamicIconChangerPlatform() : super(token: _token);
+abstract class DynamicAppIconChangerPlatform extends PlatformInterface {
+  DynamicAppIconChangerPlatform() : super(token: _token);
 
   static final Object _token = Object();
 
-  static DynamicIconChangerPlatform _instance =
-      MethodChannelDynamicIconChanger();
+  static DynamicAppIconChangerPlatform _instance =
+      MethodChannelDynamicAppIconChanger();
 
   /// The currently registered platform implementation.
-  static DynamicIconChangerPlatform get instance => _instance;
+  static DynamicAppIconChangerPlatform get instance => _instance;
 
   /// Registers a new platform implementation.
   ///
   /// Must be called before any plugin method is used (usually in the
   /// platform-specific plugin class).
-  static set instance(DynamicIconChangerPlatform instance) {
+  static set instance(DynamicAppIconChangerPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }

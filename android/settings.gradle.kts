@@ -1,1 +1,1 @@
-rootProject.name = 'dynamic_icon_changer'
+rootProject.name = 'dynamic_app_icon_changer'

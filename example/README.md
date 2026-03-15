@@ -1,6 +1,6 @@
-# dynamic_icon_changer_example
+# dynamic_app_icon_changer_example
 
-Demonstrates how to use the dynamic_icon_changer plugin.
+Demonstrates how to use the dynamic_app_icon_changer plugin.
 
 ## Getting Started
 

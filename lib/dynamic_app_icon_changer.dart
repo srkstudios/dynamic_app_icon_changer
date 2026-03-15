@@ -1,4 +1,4 @@
-import 'dynamic_icon_changer_platform_interface.dart';
+import 'dynamic_app_icon_changer_platform_interface.dart';
 
 /// Exception thrown when a dynamic-icon operation fails.
 class DynamicIconException implements Exception {
@@ -63,21 +63,21 @@ class ProtectedComponent {
 /// Public API for changing app icons at runtime.
 ///
 /// All methods are static and delegate to the registered platform
-/// implementation ([DynamicIconChangerPlatform]).
-class DynamicIconChanger {
-  DynamicIconChanger._();
+/// implementation ([DynamicAppIconChangerPlatform]).
+class DynamicAppIconChanger {
+  DynamicAppIconChanger._();
 
   /// Whether the current platform supports alternate icons.
   ///
   /// Returns `true` on iOS 10.3+ and all supported Android versions.
   static Future<bool> get supportsAlternateIcons {
-    return DynamicIconChangerPlatform.instance.supportsAlternateIcons();
+    return DynamicAppIconChangerPlatform.instance.supportsAlternateIcons();
   }
 
   /// The name of the currently active alternate icon, or `null` when the
   /// default icon is in use.
   static Future<String?> get alternateIconName {
-    return DynamicIconChangerPlatform.instance.getAlternateIconName();
+    return DynamicAppIconChangerPlatform.instance.getAlternateIconName();
   }
 
   /// Switches the launcher icon to [iconName], or reverts to the default
@@ -99,7 +99,7 @@ class DynamicIconChanger {
     List<String>? blacklistedBrands,
   }) async {
     try {
-      await DynamicIconChangerPlatform.instance.setAlternateIconName(
+      await DynamicAppIconChangerPlatform.instance.setAlternateIconName(
         iconName,
         blacklistedBrands: blacklistedBrands,
       );
@@ -112,14 +112,14 @@ class DynamicIconChanger {
   ///
   /// Pass `0` to clear the badge. On Android this is a no-op.
   static Future<void> setBadgeNumber(int count) {
-    return DynamicIconChangerPlatform.instance.setBadgeNumber(count);
+    return DynamicAppIconChangerPlatform.instance.setBadgeNumber(count);
   }
 
   /// Returns the current badge number (iOS only).
   ///
   /// Always returns `0` on Android.
   static Future<int> get badgeNumber {
-    return DynamicIconChangerPlatform.instance.getBadgeNumber();
+    return DynamicAppIconChangerPlatform.instance.getBadgeNumber();
   }
 
   /// Register Android components that should be protected during icon switches.
@@ -134,7 +134,7 @@ class DynamicIconChanger {
   ///
   /// Example:
   /// ```dart
-  /// await DynamicIconChanger.registerProtectedComponents([
+  /// await DynamicAppIconChanger.registerProtectedComponents([
   ///   ProtectedComponent(
   ///     className: 'com.moengage.pushbase.activities.PushTracker',
   ///     desiredState: ComponentState.enabled,
@@ -144,7 +144,7 @@ class DynamicIconChanger {
   static Future<void> registerProtectedComponents(
     List<ProtectedComponent> components,
   ) {
-    return DynamicIconChangerPlatform.instance
+    return DynamicAppIconChangerPlatform.instance
         .registerProtectedComponents(components);
   }
 }
