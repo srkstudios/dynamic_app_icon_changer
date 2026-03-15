@@ -1,0 +1,113 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="dynamic_app_icon_example"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <!--
+            IMPORTANT: MainActivity must NEVER have a LAUNCHER intent-filter.
+            The launcher entry is handled exclusively via activity-alias entries below.
+            This ensures MainActivity is always enabled and can always be started
+            by Flutter tooling (adb am start .MainActivity) regardless of which
+            icon alias is currently active.
+        -->
+        <!--
+            launchMode="singleTask" + no taskAffinity (defaults to package name):
+              Activity-aliases inherit BOTH from their targetActivity. With singleTask,
+              when any alias is tapped Android finds the existing task by package-name
+              affinity and brings it to the foreground — no new instance is created.
+
+            Why NOT singleTop + taskAffinity="":
+              taskAffinity="" means the task has no affinity, so Android cannot find it
+              when a newly-enabled alias is tapped. singleTop only helps when the
+              activity is already at the top of an identifiable task. Combined, they
+              always spawn a fresh task (new app instance) after every icon switch.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+        </activity>
+
+        <!--
+            DEFAULT icon alias — enabled="true" in manifest.
+            This is the launcher entry for the default app icon.
+            The plugin identifies this as the "default" alias because
+            android:enabled="true" here.
+        -->
+        <activity-alias
+            android:name=".DefaultIcon"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="dynamic_app_icon_example"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+
+        <!--
+            ALTERNATE icon aliases — enabled="false" in manifest.
+            The plugin enables exactly one of these at a time (and resets
+            the others to COMPONENT_ENABLED_STATE_DEFAULT, i.e. disabled).
+        -->
+
+        <!-- Activity alias for Blue icon -->
+        <activity-alias
+            android:name=".IconBlue"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_blue"
+            android:label="dynamic_app_icon_example"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Activity alias for Green icon -->
+        <activity-alias
+            android:name=".IconGreen"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_green"
+            android:label="dynamic_app_icon_example"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
