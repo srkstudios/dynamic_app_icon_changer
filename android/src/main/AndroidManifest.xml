@@ -12,6 +12,15 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".ScheduledIconReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.srkstudios.dynamic_app_icon_changer.ACTION_SCHEDULE_START" />
+                <action android:name="com.srkstudios.dynamic_app_icon_changer.ACTION_SCHEDULE_END" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -15,7 +15,7 @@ class MockDynamicAppIconChangerPlatform
 
   @override
   Future<void> setAlternateIconName(String? iconName,
-      {List<String>? blacklistedBrands}) async {}
+      {List<String>? blacklistedBrands, bool relaunch = false}) async {}
 
   @override
   Future<void> setBadgeNumber(int count) async {}
@@ -26,6 +26,18 @@ class MockDynamicAppIconChangerPlatform
   @override
   Future<void> registerProtectedComponents(
       List<ProtectedComponent> components) async {}
+
+  @override
+  Future<void> scheduleAlternateIcon(String iconName,
+      {DateTime? startAt,
+      required DateTime endAt,
+      List<String>? blacklistedBrands}) async {}
+
+  @override
+  Future<void> cancelScheduledIcon({bool resetToDefault = true}) async {}
+
+  @override
+  Future<ScheduleInfo?> getActiveSchedule() => Future.value(null);
 }
 
 void main() {
