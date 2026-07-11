@@ -1,29 +1,39 @@
 # dynamic_app_icon_changer
 
-A Flutter plugin for changing app icons dynamically at runtime on Android and iOS, with built-in state recovery that works seamlessly alongside third-party SDKs.
+A Flutter plugin for changing app icons dynamically at runtime on **all 6 platforms** — Android, iOS, macOS, Windows, Linux, and Web — with built-in state recovery that works seamlessly alongside third-party SDKs.
 
 ## Features
 
-- Switch app launcher icons at runtime on both Android and iOS
+- Switch app icons at runtime on **all platforms**
 - **Scheduled icon changes** with automatic reset (e.g., holiday icons)
 - **Relaunch support** — optionally restart the app after icon switch (Android)
-- Built-in state recovery on boot, app update, and engine attach
-- Protected Components API to safeguard third-party SDK components (e.g., MoEngage, Firebase) during icon switches
+- Built-in state recovery on boot, app update, and engine attach (Android)
+- Protected Components API to safeguard third-party SDK components (e.g., MoEngage, Firebase)
 - OEM blacklist support to skip problematic Android devices
-- Badge number support on iOS
+- Badge number support (iOS + macOS dock badge + web title badge)
 - Zero manual recovery code needed in consuming apps
 
 ## Platform Support
 
-| Feature                | Android | iOS       |
-|------------------------|---------|-----------|
-| Alternate icon switch  | API 21+ | iOS 10.3+ |
-| Get current icon name  | API 21+ | iOS 10.3+ |
-| Scheduled icon change  | API 21+ | iOS 10.3+ |
-| Relaunch after switch  | API 21+ | --        |
-| Protected components   | API 21+ | --        |
-| OEM blacklist          | API 21+ | --        |
-| Badge number           | --      | iOS 10.3+ |
+| Feature                | Android | iOS       | macOS      | Windows   | Linux     | Web       |
+|------------------------|---------|-----------|------------|-----------|-----------|-----------|
+| Alternate icon switch  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Get current icon name  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Scheduled icon change  | API 21+ | iOS 10.3+ | 10.14+     | Win 10+   | GTK 3+    | All       |
+| Relaunch after switch  | API 21+ | --        | --         | --        | --        | --        |
+| Protected components   | API 21+ | --        | --         | --        | --        | --        |
+| OEM blacklist          | API 21+ | --        | --         | --        | --        | --        |
+| Badge number           | --      | iOS 10.3+ | 10.14+     | --        | --        | Title     |
+
+> **How icons work per platform:**
+> - **Android**: Enables/disables `<activity-alias>` entries — changes the launcher icon permanently.
+> - **iOS**: Uses `UIApplication.setAlternateIconName` — changes the home screen icon permanently.
+> - **macOS**: Sets `NSApplication.applicationIconImage` — changes the Dock icon. Persists via UserDefaults and re-applies on launch.
+> - **Windows**: Uses `WM_SETICON` to change the window/taskbar icon. Icons loaded from `assets/icons/` in the Flutter assets directory.
+> - **Linux**: Uses `gtk_window_set_icon` to change the window icon. Icons loaded from `assets/icons/` in the Flutter assets directory.
+> - **Web**: Dynamically changes the `<link rel="icon">` favicon. Icons served from `web/icons/`.
+>
+> Desktop and web icon changes are **session-scoped** (revert on app restart) but the plugin persists the choice and re-applies it on next launch.
 
 ## Installation
 
@@ -206,6 +216,77 @@ In `ios/Runner/Info.plist`, add the `CFBundleIcons` dictionary:
 
 ---
 
+## macOS Setup
+
+macOS uses `NSApplication.applicationIconImage` to change the Dock icon at runtime.
+
+### Option A: Asset Catalog (recommended)
+
+1. Open `macos/Runner.xcworkspace` in Xcode
+2. In `Assets.xcassets`, create new Image Sets named `IconBlue`, `IconGreen`, etc.
+3. Add the icon images to each set
+
+### Option B: Loose files
+
+Place PNG or ICNS files directly in `macos/Runner/`:
+- `IconBlue.png`
+- `IconGreen.icns`
+
+The plugin searches for the icon by name using `NSImage(named:)` and falls back to loading from the app bundle and Flutter assets.
+
+---
+
+## Windows / Linux Setup
+
+On Windows and Linux, the plugin changes the **window icon** (taskbar/title bar) at runtime.
+
+### Step 1: Add icon files to Flutter assets
+
+Place your icon files in your project's assets directory:
+
+```
+assets/
+  icons/
+    IconBlue.ico       (Windows: .ico preferred)
+    IconBlue.png       (Linux: .png preferred)
+    IconGreen.ico
+    IconGreen.png
+```
+
+### Step 2: Register assets in pubspec.yaml
+
+```yaml
+flutter:
+  assets:
+    - assets/icons/
+```
+
+The plugin resolves icons from `<exe_dir>/data/flutter_assets/assets/icons/<iconName>`.
+
+---
+
+## Web Setup
+
+On the web, the plugin changes the **favicon** dynamically.
+
+### Step 1: Add icon files
+
+Place your icon PNG files in the `web/icons/` directory:
+
+```
+web/
+  icons/
+    IconBlue.png
+    IconGreen.png
+  favicon.png          (default favicon)
+```
+
+### Step 2: Ensure default favicon exists
+
+The plugin resets to `favicon.png` when reverting to the default icon. Make sure this file exists in your `web/` directory.
+
+---
+
 ## Usage
 
 ### Import
@@ -269,6 +350,12 @@ await DynamicAppIconChanger.setBadgeNumber(0); // clear
 final badge = await DynamicAppIconChanger.badgeNumber;
 ```
 
+> **Note:** On iOS the badge is only visible when the user has granted
+> notification permission with the badge option (e.g. via
+> `UNUserNotificationCenter.requestAuthorization` or a plugin such as
+> `firebase_messaging` / `flutter_local_notifications`). Without it, the
+> call silently does nothing.
+
 ---
 
 ## Scheduled Icon Changes
@@ -326,6 +413,19 @@ await DynamicAppIconChanger.cancelScheduledIcon(resetToDefault: false);
 |----------|-----------|-------------|
 | **Android** | `AlarmManager` with `setExactAndAllowWhileIdle` | Fires in background even if app is killed. Alarms are re-registered on reboot via `BOOT_COMPLETED` receiver. |
 | **iOS** | `UserDefaults` + `willEnterForegroundNotification` | Schedule is checked every time the app enters the foreground. If the app isn't opened after `endAt`, the reset happens on the next launch. |
+| **macOS / Windows / Linux** | Local prefs + startup/activation checks | Transitions apply at launch (and on macOS whenever the app becomes active). |
+| **Web** | `localStorage` + in-page timers | Transitions within the current session fire via timers; otherwise they apply on the next page load. |
+
+> **Android 12+ exact alarms:** the plugin declares
+> `android.permission.SCHEDULE_EXACT_ALARM` so scheduled changes fire at the
+> exact time. On Android 12–12L it is granted automatically. On Android 13+
+> the user may need to enable **"Alarms & reminders"** for your app in system
+> settings — without it, the plugin falls back to inexact alarms, which Doze
+> can delay. You can prompt the user with
+> `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` if exact timing matters to you.
+>
+> **Force-stop caveat:** if the user force-stops the app, Android cancels its
+> alarms. The schedule is then reconciled the next time the app is launched.
 
 **Schedule lifecycle:**
 1. `scheduleAlternateIcon()` is called
@@ -387,7 +487,7 @@ Call this once at app startup (e.g., in your `main()` or root widget's `initStat
 | `ComponentState.disabled` | Explicitly disable the component |
 | `ComponentState.defaultState` | Respect the manifest's declared value |
 
-This is a **no-op on iOS** — iOS doesn't use component states.
+This is **Android-only** — all other platforms ignore this call.
 
 ---
 

@@ -1,3 +1,23 @@
+## 0.0.4
+
+* **Multi-platform support**: macOS (Dock icon), Windows (window/taskbar icon),
+  Linux (window icon), and Web (favicon + title badge) implementations, all with
+  schedule support.
+  * Desktop/web state is persisted and re-applied on the next launch; desktop
+    prefs are namespaced per executable so multiple apps using the plugin don't
+    clobber each other.
+  * Web schedules fire via in-page timers while the page stays open, and favicon
+    paths resolve against the document base href so deep-linked routes work.
+* Errors thrown by `setAlternateIconName` / `scheduleAlternateIcon` /
+  `cancelScheduledIcon` now surface the platform error code via
+  `DynamicIconException.code` (e.g. `ICON_NOT_FOUND`).
+* Android: `getActiveSchedule` now reconciles expired schedules (e.g. after a
+  force-stop cancelled the reset alarm), the plugin manifest declares
+  `SCHEDULE_EXACT_ALARM` for exact scheduling on Android 12+, and
+  `getAlternateIconName` reads the persisted state for deterministic results.
+* iOS: badges are set via `UNUserNotificationCenter.setBadgeCount` on iOS 16+.
+* Raised minimum SDK to Dart 3.3 / Flutter 3.19 (required by `package:web`).
+
 ## 0.0.3
 
 * **Scheduled icon changes**: New `scheduleAlternateIcon()` API lets you set an
