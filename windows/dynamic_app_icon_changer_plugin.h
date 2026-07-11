@@ -5,9 +5,10 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
+#include <filesystem>
 #include <memory>
-#include <string>
 #include <optional>
+#include <string>
 
 namespace dynamic_app_icon_changer {
 
@@ -21,15 +22,20 @@ class DynamicAppIconChangerPlugin : public flutter::Plugin {
   DynamicAppIconChangerPlugin(const DynamicAppIconChangerPlugin&) = delete;
   DynamicAppIconChangerPlugin& operator=(const DynamicAppIconChangerPlugin&) = delete;
 
+  // Re-applies any persisted schedule/active icon. Called at registration.
+  void RestorePersistedIcon();
+
  private:
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
+  HWND GetWindowHandle();
   void SetWindowIcon(const std::string& icon_name);
   void ResetWindowIcon();
-  std::string GetIconPath(const std::string& icon_name);
-  std::string GetPrefsPath();
+  static std::filesystem::path GetExecutablePath();
+  std::wstring GetIconPath(const std::string& icon_name);
+  std::filesystem::path GetPrefsPath();
   void SavePref(const std::string& key, const std::string& value);
   std::optional<std::string> ReadPref(const std::string& key);
   void RemovePref(const std::string& key);
@@ -38,6 +44,7 @@ class DynamicAppIconChangerPlugin : public flutter::Plugin {
   flutter::PluginRegistrarWindows *registrar_;
   HICON original_big_icon_ = nullptr;
   HICON original_small_icon_ = nullptr;
+  HICON loaded_icon_ = nullptr;
   bool original_icons_saved_ = false;
 };
 

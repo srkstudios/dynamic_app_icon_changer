@@ -4,12 +4,14 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 #include <windows.h>
+#include <shlobj.h>
 
 #include <fstream>
 #include <sstream>
 #include <filesystem>
 #include <map>
 #include <chrono>
+#include <functional>
 
 namespace dynamic_app_icon_changer {
 
@@ -31,8 +33,8 @@ void DynamicAppIconChangerPlugin::RegisterWithRegistrar(
         plugin_pointer->HandleMethodCall(call, std::move(result));
       });
 
-  // Check schedule on startup
-  plugin->CheckSchedule();
+  // Check schedule and restore the persisted icon on startup.
+  plugin->RestorePersistedIcon();
 
   registrar->AddPlugin(std::move(plugin));
 }
@@ -41,11 +43,45 @@ DynamicAppIconChangerPlugin::DynamicAppIconChangerPlugin(
     flutter::PluginRegistrarWindows *registrar)
     : registrar_(registrar) {}
 
-DynamicAppIconChangerPlugin::~DynamicAppIconChangerPlugin() {}
+DynamicAppIconChangerPlugin::~DynamicAppIconChangerPlugin() {
+  if (loaded_icon_) {
+    DestroyIcon(loaded_icon_);
+    loaded_icon_ = nullptr;
+  }
+}
 
 static int64_t NowMillis() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+static int64_t ParseMillis(const std::string& value) {
+  try {
+    return std::stoll(value);
+  } catch (...) {
+    return 0;
+  }
+}
+
+// Extracts an integer argument that the standard codec may have encoded as
+// either int32 or int64 depending on magnitude.
+static std::optional<int64_t> GetInt64Arg(const flutter::EncodableMap& args,
+                                          const char* key) {
+  auto it = args.find(flutter::EncodableValue(key));
+  if (it == args.end() || it->second.IsNull()) return std::nullopt;
+  if (const auto* v64 = std::get_if<int64_t>(&it->second)) return *v64;
+  if (const auto* v32 = std::get_if<int32_t>(&it->second)) {
+    return static_cast<int64_t>(*v32);
+  }
+  return std::nullopt;
+}
+
+static std::optional<std::string> GetStringArg(const flutter::EncodableMap& args,
+                                               const char* key) {
+  auto it = args.find(flutter::EncodableValue(key));
+  if (it == args.end() || it->second.IsNull()) return std::nullopt;
+  if (const auto* str = std::get_if<std::string>(&it->second)) return *str;
+  return std::nullopt;
 }
 
 void DynamicAppIconChangerPlugin::HandleMethodCall(
@@ -72,11 +108,10 @@ void DynamicAppIconChangerPlugin::HandleMethodCall(
       return;
     }
 
-    auto it = args->find(flutter::EncodableValue("iconName"));
-    if (it != args->end() && !it->second.IsNull()) {
-      auto icon_name = std::get<std::string>(it->second);
-      SetWindowIcon(icon_name);
-      SavePref(kActiveIconKey, icon_name);
+    auto icon_name = GetStringArg(*args, "iconName");
+    if (icon_name.has_value()) {
+      SetWindowIcon(icon_name.value());
+      SavePref(kActiveIconKey, icon_name.value());
     } else {
       ResetWindowIcon();
       RemovePref(kActiveIconKey);
@@ -90,29 +125,23 @@ void DynamicAppIconChangerPlugin::HandleMethodCall(
       return;
     }
 
-    auto icon_it = args->find(flutter::EncodableValue("iconName"));
-    auto end_it = args->find(flutter::EncodableValue("endAtMillis"));
-    if (icon_it == args->end() || end_it == args->end()) {
+    auto icon_name = GetStringArg(*args, "iconName");
+    auto end_millis = GetInt64Arg(*args, "endAtMillis");
+    if (!icon_name.has_value() || !end_millis.has_value()) {
       result->Error("INVALID_ARGUMENTS", "Expected iconName and endAtMillis.");
       return;
     }
 
-    auto icon_name = std::get<std::string>(icon_it->second);
-    int64_t end_millis = std::get<int64_t>(end_it->second);
-    int64_t start_millis = 0;
-    auto start_it = args->find(flutter::EncodableValue("startAtMillis"));
-    if (start_it != args->end() && !start_it->second.IsNull()) {
-      start_millis = std::get<int64_t>(start_it->second);
-    }
+    int64_t start_millis = GetInt64Arg(*args, "startAtMillis").value_or(0);
 
-    SavePref(kScheduleIconKey, icon_name);
+    SavePref(kScheduleIconKey, icon_name.value());
     SavePref(kScheduleStartKey, std::to_string(start_millis));
-    SavePref(kScheduleEndKey, std::to_string(end_millis));
+    SavePref(kScheduleEndKey, std::to_string(end_millis.value()));
 
     int64_t now = NowMillis();
     if (start_millis == 0 || now >= start_millis) {
-      SetWindowIcon(icon_name);
-      SavePref(kActiveIconKey, icon_name);
+      SetWindowIcon(icon_name.value());
+      SavePref(kActiveIconKey, icon_name.value());
     }
 
     result->Success(flutter::EncodableValue());
@@ -123,7 +152,9 @@ void DynamicAppIconChangerPlugin::HandleMethodCall(
     if (args) {
       auto it = args->find(flutter::EncodableValue("resetToDefault"));
       if (it != args->end()) {
-        reset_to_default = std::get<bool>(it->second);
+        if (const auto* b = std::get_if<bool>(&it->second)) {
+          reset_to_default = *b;
+        }
       }
     }
 
@@ -152,9 +183,9 @@ void DynamicAppIconChangerPlugin::HandleMethodCall(
       return;
     }
 
-    int64_t end_millis = std::stoll(end_str.value());
+    int64_t end_millis = ParseMillis(end_str.value());
     auto start_str = ReadPref(kScheduleStartKey);
-    int64_t start_millis = start_str.has_value() ? std::stoll(start_str.value()) : 0;
+    int64_t start_millis = start_str.has_value() ? ParseMillis(start_str.value()) : 0;
     int64_t now = NowMillis();
     bool is_active = (start_millis == 0 || now >= start_millis) && now < end_millis;
 
@@ -184,8 +215,15 @@ void DynamicAppIconChangerPlugin::HandleMethodCall(
   }
 }
 
+HWND DynamicAppIconChangerPlugin::GetWindowHandle() {
+  // The view can be null during early startup or in headless engines.
+  flutter::FlutterView* view = registrar_->GetView();
+  if (!view) return nullptr;
+  return view->GetNativeWindow();
+}
+
 void DynamicAppIconChangerPlugin::SetWindowIcon(const std::string& icon_name) {
-  HWND hwnd = registrar_->GetView()->GetNativeWindow();
+  HWND hwnd = GetWindowHandle();
   if (!hwnd) return;
 
   // Save original icons on first call
@@ -197,16 +235,15 @@ void DynamicAppIconChangerPlugin::SetWindowIcon(const std::string& icon_name) {
     original_icons_saved_ = true;
   }
 
-  std::string path = GetIconPath(icon_name);
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = GetIconPath(icon_name);
 
-  // Try loading as .ico first, then .png
+  // LoadImage(IMAGE_ICON) only supports .ico files. Try the bare path first
+  // (in case the caller included the extension), then with ".ico" appended.
   HICON icon = static_cast<HICON>(LoadImageW(
       nullptr, wpath.c_str(), IMAGE_ICON, 0, 0,
       LR_LOADFROMFILE | LR_DEFAULTSIZE));
 
   if (!icon) {
-    // Try with .ico extension
     std::wstring ico_path = wpath + L".ico";
     icon = static_cast<HICON>(LoadImageW(
         nullptr, ico_path.c_str(), IMAGE_ICON, 0, 0,
@@ -216,41 +253,57 @@ void DynamicAppIconChangerPlugin::SetWindowIcon(const std::string& icon_name) {
   if (icon) {
     SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
     SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+    if (loaded_icon_) {
+      DestroyIcon(loaded_icon_);
+    }
+    loaded_icon_ = icon;
   }
 }
 
 void DynamicAppIconChangerPlugin::ResetWindowIcon() {
-  HWND hwnd = registrar_->GetView()->GetNativeWindow();
+  HWND hwnd = GetWindowHandle();
   if (!hwnd || !original_icons_saved_) return;
 
-  if (original_big_icon_) {
-    SendMessage(hwnd, WM_SETICON, ICON_BIG,
-                reinterpret_cast<LPARAM>(original_big_icon_));
-  }
-  if (original_small_icon_) {
-    SendMessage(hwnd, WM_SETICON, ICON_SMALL,
-                reinterpret_cast<LPARAM>(original_small_icon_));
+  SendMessage(hwnd, WM_SETICON, ICON_BIG,
+              reinterpret_cast<LPARAM>(original_big_icon_));
+  SendMessage(hwnd, WM_SETICON, ICON_SMALL,
+              reinterpret_cast<LPARAM>(original_small_icon_));
+
+  if (loaded_icon_) {
+    DestroyIcon(loaded_icon_);
+    loaded_icon_ = nullptr;
   }
 }
 
-std::string DynamicAppIconChangerPlugin::GetIconPath(const std::string& icon_name) {
-  // Get the directory of the running executable
-  char exe_path[MAX_PATH];
-  GetModuleFileNameA(nullptr, exe_path, MAX_PATH);
-  std::filesystem::path exe_dir = std::filesystem::path(exe_path).parent_path();
+std::filesystem::path DynamicAppIconChangerPlugin::GetExecutablePath() {
+  wchar_t exe_path[MAX_PATH];
+  GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+  return std::filesystem::path(exe_path);
+}
+
+std::wstring DynamicAppIconChangerPlugin::GetIconPath(const std::string& icon_name) {
+  std::filesystem::path exe_dir = GetExecutablePath().parent_path();
   // Flutter assets are at <exe_dir>/data/flutter_assets/assets/icons/<name>
-  auto icon_path = exe_dir / "data" / "flutter_assets" / "assets" / "icons" / icon_name;
-  return icon_path.string();
+  auto icon_path = exe_dir / "data" / "flutter_assets" / "assets" / "icons" /
+                   std::filesystem::u8path(icon_name);
+  return icon_path.wstring();
 }
 
-std::string DynamicAppIconChangerPlugin::GetPrefsPath() {
-  char app_data[MAX_PATH];
-  if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, app_data))) {
-    auto path = std::filesystem::path(app_data) / "dynamic_app_icon_changer";
-    std::filesystem::create_directories(path);
-    return (path / "prefs.ini").string();
+std::filesystem::path DynamicAppIconChangerPlugin::GetPrefsPath() {
+  auto exe_path = GetExecutablePath();
+  // Namespace the prefs per executable so different apps that use this
+  // plugin do not read or clobber each other's state.
+  std::wstring app_id = exe_path.stem().wstring() + L"_" +
+      std::to_wstring(std::hash<std::wstring>{}(exe_path.wstring()));
+
+  wchar_t app_data[MAX_PATH];
+  if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, app_data))) {
+    auto path = std::filesystem::path(app_data) / L"dynamic_app_icon_changer" / app_id;
+    std::error_code ec;
+    std::filesystem::create_directories(path, ec);
+    return path / L"prefs.ini";
   }
-  return "dic_prefs.ini";
+  return std::filesystem::path(L"dic_prefs.ini");
 }
 
 void DynamicAppIconChangerPlugin::SavePref(const std::string& key, const std::string& value) {
@@ -321,9 +374,9 @@ void DynamicAppIconChangerPlugin::CheckSchedule() {
   auto end_str = ReadPref(kScheduleEndKey);
   if (!end_str.has_value()) return;
 
-  int64_t end_millis = std::stoll(end_str.value());
+  int64_t end_millis = ParseMillis(end_str.value());
   auto start_str = ReadPref(kScheduleStartKey);
-  int64_t start_millis = start_str.has_value() ? std::stoll(start_str.value()) : 0;
+  int64_t start_millis = start_str.has_value() ? ParseMillis(start_str.value()) : 0;
   int64_t now = NowMillis();
 
   if (now >= end_millis) {
@@ -342,6 +395,16 @@ void DynamicAppIconChangerPlugin::CheckSchedule() {
       SetWindowIcon(icon.value());
       SavePref(kActiveIconKey, icon.value());
     }
+  }
+}
+
+void DynamicAppIconChangerPlugin::RestorePersistedIcon() {
+  CheckSchedule();
+  // Window icons do not survive process restarts, so re-apply whatever
+  // icon is recorded as active (set directly or via a schedule).
+  auto active = ReadPref(kActiveIconKey);
+  if (active.has_value()) {
+    SetWindowIcon(active.value());
   }
 }
 

@@ -2,6 +2,11 @@
   package="com.srkstudios.dynamic_app_icon_changer">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Needed on Android 12+ so scheduled icon changes fire at the exact
+         time instead of being deferred by Doze. Auto-granted on API 31-32;
+         on API 33+ the user may need to grant "Alarms & reminders" in
+         settings — the plugin falls back to inexact alarms otherwise. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application>
         <receiver

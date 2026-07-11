@@ -350,6 +350,12 @@ await DynamicAppIconChanger.setBadgeNumber(0); // clear
 final badge = await DynamicAppIconChanger.badgeNumber;
 ```
 
+> **Note:** On iOS the badge is only visible when the user has granted
+> notification permission with the badge option (e.g. via
+> `UNUserNotificationCenter.requestAuthorization` or a plugin such as
+> `firebase_messaging` / `flutter_local_notifications`). Without it, the
+> call silently does nothing.
+
 ---
 
 ## Scheduled Icon Changes
@@ -407,6 +413,19 @@ await DynamicAppIconChanger.cancelScheduledIcon(resetToDefault: false);
 |----------|-----------|-------------|
 | **Android** | `AlarmManager` with `setExactAndAllowWhileIdle` | Fires in background even if app is killed. Alarms are re-registered on reboot via `BOOT_COMPLETED` receiver. |
 | **iOS** | `UserDefaults` + `willEnterForegroundNotification` | Schedule is checked every time the app enters the foreground. If the app isn't opened after `endAt`, the reset happens on the next launch. |
+| **macOS / Windows / Linux** | Local prefs + startup/activation checks | Transitions apply at launch (and on macOS whenever the app becomes active). |
+| **Web** | `localStorage` + in-page timers | Transitions within the current session fire via timers; otherwise they apply on the next page load. |
+
+> **Android 12+ exact alarms:** the plugin declares
+> `android.permission.SCHEDULE_EXACT_ALARM` so scheduled changes fire at the
+> exact time. On Android 12–12L it is granted automatically. On Android 13+
+> the user may need to enable **"Alarms & reminders"** for your app in system
+> settings — without it, the plugin falls back to inexact alarms, which Doze
+> can delay. You can prompt the user with
+> `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` if exact timing matters to you.
+>
+> **Force-stop caveat:** if the user force-stops the app, Android cancels its
+> alarms. The schedule is then reconciled the next time the app is launched.
 
 **Schedule lifecycle:**
 1. `scheduleAlternateIcon()` is called

@@ -2,9 +2,12 @@
 
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
+#include <limits.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <string>
 #include <chrono>
@@ -30,10 +33,24 @@ static const char* kScheduleIconKey = "schedule_icon_name";
 static const char* kScheduleStartKey = "schedule_start_millis";
 static const char* kScheduleEndKey = "schedule_end_millis";
 
+static std::string get_executable_path() {
+  char exe_path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  if (len == -1) return "";
+  exe_path[len] = '\0';
+  return std::string(exe_path);
+}
+
 static std::string get_prefs_path() {
-  const char* home = g_get_home_dir();
-  auto path = std::filesystem::path(home) / ".config" / "dynamic_app_icon_changer";
-  std::filesystem::create_directories(path);
+  const char* config_dir = g_get_user_config_dir();
+  // Namespace the prefs per executable so different apps that use this
+  // plugin do not read or clobber each other's state.
+  auto exe = std::filesystem::path(get_executable_path());
+  std::string app_id = exe.stem().string() + "_" +
+      std::to_string(std::hash<std::string>{}(exe.string()));
+  auto path = std::filesystem::path(config_dir) / "dynamic_app_icon_changer" / app_id;
+  std::error_code ec;
+  std::filesystem::create_directories(path, ec);
   return (path / "prefs.ini").string();
 }
 
@@ -80,15 +97,20 @@ static int64_t now_millis() {
       std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+static int64_t parse_millis(const std::string& value) {
+  try {
+    return std::stoll(value);
+  } catch (...) {
+    return 0;
+  }
+}
+
 // ── Icon helpers ─────────────────────────────────────────────────────
 
 static std::string get_icon_path(const std::string& icon_name) {
-  // Get the directory of the running executable
-  char exe_path[PATH_MAX];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-  if (len == -1) return "";
-  exe_path[len] = '\0';
-  auto exe_dir = std::filesystem::path(exe_path).parent_path();
+  std::string exe = get_executable_path();
+  if (exe.empty()) return "";
+  auto exe_dir = std::filesystem::path(exe).parent_path();
   auto icon_path = exe_dir / "data" / "flutter_assets" / "assets" / "icons" / icon_name;
   return icon_path.string();
 }
@@ -138,9 +160,9 @@ static void check_schedule(FlPluginRegistrar* registrar) {
   std::string end_str = read_pref(kScheduleEndKey);
   if (end_str.empty()) return;
 
-  int64_t end_millis = std::stoll(end_str);
+  int64_t end_millis = parse_millis(end_str);
   std::string start_str = read_pref(kScheduleStartKey);
-  int64_t start_millis = start_str.empty() ? 0 : std::stoll(start_str);
+  int64_t start_millis = start_str.empty() ? 0 : parse_millis(start_str);
   int64_t now = now_millis();
 
   if (now >= end_millis) {
@@ -158,6 +180,16 @@ static void check_schedule(FlPluginRegistrar* registrar) {
       set_window_icon(registrar, icon);
       save_pref(kActiveIconKey, icon);
     }
+  }
+}
+
+// Window icons do not survive process restarts, so re-apply whatever icon
+// is recorded as active (set directly or via a schedule).
+static void restore_persisted_icon(FlPluginRegistrar* registrar) {
+  check_schedule(registrar);
+  std::string active = read_pref(kActiveIconKey);
+  if (!active.empty()) {
+    set_window_icon(registrar, active);
   }
 }
 
@@ -202,7 +234,8 @@ static void method_call_handler(FlMethodChannel* channel, FlMethodCall* method_c
     FlValue* icon_val = fl_value_lookup_string(args, "iconName");
     FlValue* end_val = fl_value_lookup_string(args, "endAtMillis");
 
-    if (!icon_val || !end_val) {
+    if (!icon_val || fl_value_get_type(icon_val) != FL_VALUE_TYPE_STRING ||
+        !end_val || fl_value_get_type(end_val) != FL_VALUE_TYPE_INT) {
       response = FL_METHOD_RESPONSE(fl_method_error_response_new(
           "INVALID_ARGUMENTS", "Expected iconName and endAtMillis.", nullptr));
     } else {
@@ -259,9 +292,9 @@ static void method_call_handler(FlMethodChannel* channel, FlMethodCall* method_c
         g_autoptr(FlValue) result = fl_value_new_null();
         response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
       } else {
-        int64_t end_millis = std::stoll(end_str);
+        int64_t end_millis = parse_millis(end_str);
         std::string start_str = read_pref(kScheduleStartKey);
-        int64_t start_millis = start_str.empty() ? 0 : std::stoll(start_str);
+        int64_t start_millis = start_str.empty() ? 0 : parse_millis(start_str);
         int64_t now = now_millis();
         gboolean is_active = (start_millis == 0 || now >= start_millis) && now < end_millis;
 
@@ -327,8 +360,8 @@ void dynamic_app_icon_changer_plugin_register_with_registrar(
   fl_method_channel_set_method_call_handler(
       channel, method_call_handler, g_object_ref(plugin), g_object_unref);
 
-  // Check schedule on startup
-  check_schedule(registrar);
+  // Check schedule and restore the persisted icon on startup
+  restore_persisted_icon(registrar);
 
   g_object_unref(plugin);
 }

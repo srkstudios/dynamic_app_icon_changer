@@ -19,16 +19,22 @@ public class DynamicAppIconChangerPlugin: NSObject, FlutterPlugin {
         let instance = DynamicAppIconChangerPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
 
-        // Check schedule on app activation (equivalent to iOS foreground)
-        NSWorkspace.shared.notificationCenter.addObserver(
+        // Check schedule when this app becomes active (equivalent to iOS
+        // foreground). NSApplication.didBecomeActiveNotification only fires
+        // for this app, unlike NSWorkspace.didActivateApplicationNotification
+        // which fires for every app activation system-wide.
+        NotificationCenter.default.addObserver(
             instance,
             selector: #selector(checkScheduleOnActivation),
-            name: NSWorkspace.didActivateApplicationNotification,
+            name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
 
-        // Check schedule on registration (app launch)
+        // Check schedule and restore the persisted icon on launch. The Dock
+        // icon does not survive process restarts, so re-apply whatever icon
+        // is recorded as active.
         instance.checkScheduleOnActivation()
+        instance.restorePersistedIcon()
 
         os_log(.debug, log: log, "Plugin registered")
     }
@@ -250,6 +256,20 @@ public class DynamicAppIconChangerPlugin: NSObject, FlutterPlugin {
                     defaults.set(iconName, forKey: DynamicAppIconChangerPlugin.activeIconKey)
                 }
             }
+        }
+    }
+
+    private func restorePersistedIcon() {
+        guard let iconName = UserDefaults.standard.string(
+            forKey: DynamicAppIconChangerPlugin.activeIconKey) else {
+            return
+        }
+        if let image = NSImage(named: iconName) ?? loadIconFromBundle(named: iconName) {
+            os_log(.info, log: log, "restorePersistedIcon: re-applying '%{public}@'", iconName)
+            NSApp.applicationIconImage = image
+        } else {
+            os_log(.error, log: log,
+                   "restorePersistedIcon: icon '%{public}@' no longer found in bundle", iconName)
         }
     }
 
