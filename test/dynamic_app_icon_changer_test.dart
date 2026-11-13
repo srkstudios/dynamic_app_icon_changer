@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer.dart';
 import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer_platform_interface.dart';
@@ -38,6 +39,25 @@ class MockDynamicAppIconChangerPlatform
 
   @override
   Future<ScheduleInfo?> getActiveSchedule() => Future.value(null);
+}
+
+/// Mock platform whose mutating methods fail with a [PlatformException],
+/// mimicking a real method-channel error.
+class ThrowingMockPlatform extends MockDynamicAppIconChangerPlatform {
+  @override
+  Future<void> setAlternateIconName(String? iconName,
+      {List<String>? blacklistedBrands, bool relaunch = false}) {
+    throw PlatformException(
+        code: 'ICON_NOT_FOUND', message: 'No alias named X');
+  }
+
+  @override
+  Future<void> scheduleAlternateIcon(String iconName,
+      {DateTime? startAt,
+      required DateTime endAt,
+      List<String>? blacklistedBrands}) {
+    throw PlatformException(code: 'SCHEDULE_FAILED', message: 'boom');
+  }
 }
 
 void main() {
@@ -110,6 +130,99 @@ void main() {
           desiredState: ComponentState.defaultState,
         ),
       ]);
+    });
+  });
+
+  group('scheduleAlternateIcon validation', () {
+    setUp(() {
+      DynamicAppIconChangerPlatform.instance =
+          MockDynamicAppIconChangerPlatform();
+    });
+
+    test('throws INVALID_SCHEDULE when endAt is in the past', () async {
+      await expectLater(
+        DynamicAppIconChanger.scheduleAlternateIcon(
+          'IconBlue',
+          endAt: DateTime.now().subtract(const Duration(hours: 1)),
+        ),
+        throwsA(isA<DynamicIconException>()
+            .having((e) => e.code, 'code', 'INVALID_SCHEDULE')),
+      );
+    });
+
+    test('throws INVALID_SCHEDULE when endAt is before startAt', () async {
+      final start = DateTime.now().add(const Duration(days: 2));
+      final end = DateTime.now().add(const Duration(days: 1));
+      await expectLater(
+        DynamicAppIconChanger.scheduleAlternateIcon(
+          'IconBlue',
+          startAt: start,
+          endAt: end,
+        ),
+        throwsA(isA<DynamicIconException>()
+            .having((e) => e.code, 'code', 'INVALID_SCHEDULE')),
+      );
+    });
+
+    test('accepts a valid future window', () async {
+      await DynamicAppIconChanger.scheduleAlternateIcon(
+        'IconBlue',
+        startAt: DateTime.now().add(const Duration(hours: 1)),
+        endAt: DateTime.now().add(const Duration(hours: 2)),
+      );
+    });
+  });
+
+  group('PlatformException wrapping', () {
+    setUp(() {
+      DynamicAppIconChangerPlatform.instance = ThrowingMockPlatform();
+    });
+
+    test('setAlternateIconName preserves the platform error code', () async {
+      await expectLater(
+        DynamicAppIconChanger.setAlternateIconName('Missing'),
+        throwsA(isA<DynamicIconException>()
+            .having((e) => e.code, 'code', 'ICON_NOT_FOUND')
+            .having((e) => e.message, 'message', 'No alias named X')),
+      );
+    });
+
+    test('scheduleAlternateIcon preserves the platform error code', () async {
+      await expectLater(
+        DynamicAppIconChanger.scheduleAlternateIcon(
+          'IconBlue',
+          endAt: DateTime.now().add(const Duration(hours: 1)),
+        ),
+        throwsA(isA<DynamicIconException>()
+            .having((e) => e.code, 'code', 'SCHEDULE_FAILED')),
+      );
+    });
+  });
+
+  group('ScheduleInfo', () {
+    test('fromMap parses a full schedule', () {
+      final info = ScheduleInfo.fromMap({
+        'iconName': 'IconBlue',
+        'startAtMillis': 1000,
+        'endAtMillis': 2000,
+        'isActive': true,
+      });
+      expect(info.iconName, 'IconBlue');
+      expect(info.startAt, DateTime.fromMillisecondsSinceEpoch(1000));
+      expect(info.endAt, DateTime.fromMillisecondsSinceEpoch(2000));
+      expect(info.isActive, true);
+    });
+
+    test('fromMap handles a null startAtMillis', () {
+      final info = ScheduleInfo.fromMap({
+        'iconName': 'IconGreen',
+        'startAtMillis': null,
+        'endAtMillis': 5000,
+        'isActive': false,
+      });
+      expect(info.startAt, isNull);
+      expect(info.endAt, DateTime.fromMillisecondsSinceEpoch(5000));
+      expect(info.isActive, false);
     });
   });
 

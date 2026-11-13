@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import 'dynamic_app_icon_changer_platform_interface.dart';
 
 /// Exception thrown when a dynamic-icon operation fails.
@@ -146,8 +148,8 @@ class DynamicAppIconChanger {
         blacklistedBrands: blacklistedBrands,
         relaunch: relaunch,
       );
-    } on Exception catch (e) {
-      throw DynamicIconException(e.toString());
+    } on PlatformException catch (e) {
+      throw DynamicIconException(e.message ?? e.code, code: e.code);
     }
   }
 
@@ -204,8 +206,8 @@ class DynamicAppIconChanger {
         endAt: endAt,
         blacklistedBrands: blacklistedBrands,
       );
-    } on Exception catch (e) {
-      throw DynamicIconException(e.toString());
+    } on PlatformException catch (e) {
+      throw DynamicIconException(e.message ?? e.code, code: e.code);
     }
   }
 
@@ -221,8 +223,8 @@ class DynamicAppIconChanger {
       await DynamicAppIconChangerPlatform.instance.cancelScheduledIcon(
         resetToDefault: resetToDefault,
       );
-    } on Exception catch (e) {
-      throw DynamicIconException(e.toString());
+    } on PlatformException catch (e) {
+      throw DynamicIconException(e.message ?? e.code, code: e.code);
     }
   }
 

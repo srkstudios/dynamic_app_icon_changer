@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import UserNotifications
 import os.log
 
 private let log = OSLog(subsystem: "com.srkstudios.dynamic_app_icon_changer", category: "DynamicAppIconChanger")
@@ -87,7 +88,17 @@ public class DynamicAppIconChangerPlugin: NSObject, FlutterPlugin {
             if let args = call.arguments as? [String: Any],
                let count = args["count"] as? Int {
                 os_log(.debug, log: log, "setBadgeNumber: setting to %d", count)
-                UIApplication.shared.applicationIconBadgeNumber = count
+                // Requires notification authorization (badge) to be visible.
+                if #available(iOS 16.0, *) {
+                    UNUserNotificationCenter.current().setBadgeCount(count) { error in
+                        if let error = error {
+                            os_log(.error, log: log,
+                                   "setBadgeNumber: failed — %{public}@", error.localizedDescription)
+                        }
+                    }
+                } else {
+                    UIApplication.shared.applicationIconBadgeNumber = count
+                }
             }
             result(nil)
 

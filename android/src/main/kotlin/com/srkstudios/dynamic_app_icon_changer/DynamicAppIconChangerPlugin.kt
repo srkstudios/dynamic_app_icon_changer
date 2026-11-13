@@ -49,10 +49,16 @@ class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler, ActivityAw
         Log.d(TAG, "onMethodCall: method=${call.method}")
         when (call.method) {
             "supportsAlternateIcons" -> {
+                // Alias-based icon switching works on all supported Android
+                // versions; a missing manifest setup is reported as
+                // NO_ALIASES_FOUND when an icon change is attempted.
                 result.success(true)
             }
             "getAlternateIconName" -> {
-                result.success(getActiveAlternateIcon())
+                // The persisted state is the source of truth: PackageManager
+                // queries return aliases in unspecified order and can report
+                // two enabled aliases during the post-update recovery window.
+                result.success(IconStateManager.getActiveIcon(binding.applicationContext))
             }
             "setAlternateIconName" -> {
                 handleSetAlternateIconName(call, result)
@@ -82,36 +88,15 @@ class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler, ActivityAw
         }
     }
 
-    private fun getActiveAlternateIcon(): String? {
-        val context = binding.applicationContext
-        val pm = context.packageManager
-        val pkg = context.packageName
-
-        val aliases = getLauncherAliases(pm, pkg)
-
-        for (activityInfo in aliases) {
-            val componentName = ComponentName(pkg, activityInfo.name)
-            val state = pm.getComponentEnabledSetting(componentName)
-
-            val effectivelyEnabled = when (state) {
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
-                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT -> activityInfo.enabled
-                else -> false
-            }
-
-            if (effectivelyEnabled) {
-                val activeIcon = if (activityInfo.enabled) {
-                    null
-                } else {
-                    activityInfo.name.removePrefix("$pkg.")
-                }
-                Log.d(TAG, "getActiveAlternateIcon: result=${activeIcon ?: "default"}")
-                return activeIcon
-            }
+    /** Returns true when the device manufacturer or model matches any entry. */
+    private fun isDeviceBlacklisted(blacklistedBrands: List<String>?): Boolean {
+        if (blacklistedBrands.isNullOrEmpty()) return false
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val model = Build.MODEL.lowercase()
+        return blacklistedBrands.any { brand ->
+            val b = brand.lowercase()
+            manufacturer.contains(b) || model.contains(b)
         }
-
-        Log.d(TAG, "getActiveAlternateIcon: no enabled alias found, returning null")
-        return null
     }
 
     private fun handleSetAlternateIconName(call: MethodCall, result: Result) {
@@ -121,17 +106,10 @@ class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler, ActivityAw
             val relaunch = call.argument<Boolean>("relaunch") ?: false
             Log.d(TAG, "setAlternateIconName: target=${iconName ?: "default"}, relaunch=$relaunch, blacklist=${blacklistedBrands?.size ?: 0} brands")
 
-            if (!blacklistedBrands.isNullOrEmpty()) {
-                val manufacturer = Build.MANUFACTURER.lowercase()
-                val model = Build.MODEL.lowercase()
-                for (brand in blacklistedBrands) {
-                    val b = brand.lowercase()
-                    if (manufacturer.contains(b) || model.contains(b)) {
-                        Log.i(TAG, "setAlternateIconName: skipped — device brand '$b' is blacklisted (manufacturer=$manufacturer, model=$model)")
-                        result.success(null)
-                        return
-                    }
-                }
+            if (isDeviceBlacklisted(blacklistedBrands)) {
+                Log.i(TAG, "setAlternateIconName: skipped — device brand is blacklisted")
+                result.success(null)
+                return
             }
 
             val context = binding.applicationContext
@@ -223,27 +201,20 @@ class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler, ActivityAw
         try {
             val iconName = call.argument<String>("iconName")
             val startAtMillis = call.argument<Number?>("startAtMillis")?.toLong()
-            val endAtMillis = call.argument<Number>("endAtMillis")!!.toLong()
+            val endAtMillis = call.argument<Number?>("endAtMillis")?.toLong()
             val blacklistedBrands = call.argument<List<String>?>("blacklistedBrands")
 
-            if (iconName == null) {
-                result.error("INVALID_ARGUMENTS", "iconName is required", null)
+            if (iconName == null || endAtMillis == null) {
+                result.error("INVALID_ARGUMENTS", "iconName and endAtMillis are required", null)
                 return
             }
 
             Log.d(TAG, "scheduleAlternateIcon: icon=$iconName, start=$startAtMillis, end=$endAtMillis")
 
-            if (!blacklistedBrands.isNullOrEmpty()) {
-                val manufacturer = Build.MANUFACTURER.lowercase()
-                val model = Build.MODEL.lowercase()
-                for (brand in blacklistedBrands) {
-                    val b = brand.lowercase()
-                    if (manufacturer.contains(b) || model.contains(b)) {
-                        Log.i(TAG, "scheduleAlternateIcon: skipped — device brand '$b' is blacklisted")
-                        result.success(null)
-                        return
-                    }
-                }
+            if (isDeviceBlacklisted(blacklistedBrands)) {
+                Log.i(TAG, "scheduleAlternateIcon: skipped — device brand is blacklisted")
+                result.success(null)
+                return
             }
 
             val context = binding.applicationContext
@@ -328,6 +299,10 @@ class DynamicAppIconChangerPlugin : FlutterPlugin, MethodCallHandler, ActivityAw
     private fun handleGetActiveSchedule(result: Result) {
         try {
             val context = binding.applicationContext
+            // Self-heal first: if the end alarm was missed (e.g. the app was
+            // force-stopped, which cancels alarms), this resets the icon and
+            // clears the expired schedule instead of reporting stale state.
+            IconStateManager.checkAndApplySchedule(context)
             val schedule = IconStateManager.getSchedule(context)
 
             if (schedule == null) {

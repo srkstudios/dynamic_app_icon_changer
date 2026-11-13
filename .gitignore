@@ -31,3 +31,6 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
+
+# Local Claude Code settings
+.claude/settings.local.json

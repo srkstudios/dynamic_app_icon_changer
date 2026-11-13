@@ -1,8 +1,13 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dynamic_app_icon_changer/dynamic_app_icon_changer.dart';
+
+/// Web-safe platform checks (`dart:io`'s `Platform` throws on web).
+bool get _isAndroid =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
 void main() {
   runApp(const MyApp());
@@ -55,7 +60,7 @@ class _HomePageState extends State<HomePage> {
   /// during icon switches. This ensures components like push notification
   /// handlers are not disrupted when activity-alias states change.
   Future<void> _registerProtectedComponents() async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid) return;
 
     try {
       // Example: protect MoEngage PushTracker from being disabled during
@@ -77,7 +82,7 @@ class _HomePageState extends State<HomePage> {
       final supports = await DynamicAppIconChanger.supportsAlternateIcons;
       final iconName = await DynamicAppIconChanger.alternateIconName;
       int badge = 0;
-      if (Platform.isIOS) {
+      if (_isIOS) {
         badge = await DynamicAppIconChanger.badgeNumber;
       }
       if (!mounted) return;
@@ -105,7 +110,7 @@ class _HomePageState extends State<HomePage> {
         _statusMessage =
             'Icon changed to: ${iconName ?? "Default"} successfully!';
       });
-    } on PlatformException catch (e) {
+    } on DynamicIconException catch (e) {
       if (!mounted) return;
       _showError('Failed to change icon: ${e.message}');
       setState(() {
@@ -121,7 +126,7 @@ class _HomePageState extends State<HomePage> {
         'IconBlue',
         blacklistedBrands: [
           // This will match the current device, so the change should be skipped
-          if (Platform.isAndroid) 'auto-detected',
+          if (_isAndroid) 'auto-detected',
         ],
       );
       if (!mounted) return;
@@ -130,7 +135,7 @@ class _HomePageState extends State<HomePage> {
             'Blacklist demo: Attempted icon change with current manufacturer blacklisted. '
             'Check if the icon actually changed.';
       });
-    } on PlatformException catch (e) {
+    } on DynamicIconException catch (e) {
       if (!mounted) return;
       _showError('Blacklist demo error: ${e.message}');
     }
@@ -242,7 +247,7 @@ class _HomePageState extends State<HomePage> {
           ),
 
           // Android blacklist demo
-          if (Platform.isAndroid) ...[
+          if (_isAndroid) ...[
             const SizedBox(height: 24),
             Text(
               'Android: Blacklist Demo',
@@ -262,7 +267,7 @@ class _HomePageState extends State<HomePage> {
           ],
 
           // iOS badge section
-          if (Platform.isIOS) ...[
+          if (_isIOS) ...[
             const SizedBox(height: 24),
             Text(
               'iOS: Badge Number',
